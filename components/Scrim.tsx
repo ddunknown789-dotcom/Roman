@@ -14,11 +14,13 @@ export default function Scrim() {
     const loop = () => {
       const p = useScrollStore.getState().progress;
       // base veil ramps in after the hero
-      let veil = 0.1 + Math.min(1, p / 0.13) * 0.5;
-      // gentle dip during the "mask" chapter (~0.5-0.6) — lets the object read
-      // brighter while keeping enough veil for the centered copy
-      const dramaticDip = Math.exp(-Math.pow((p - 0.55) / 0.09, 2)) * 0.24;
-      veil = Math.max(0.3, veil - dramaticDip);
+      let veil = 0.1 + Math.min(1, p / 0.13) * 0.44;
+      // dip where the particle cloud reforms into a portrait — the friendship /
+      // Michael Jackson chapter (~0.38) and Honours & Awards (~0.74) — so the
+      // face reads brighter while keeping enough veil for the copy elsewhere
+      const dipMJ = Math.exp(-Math.pow((p - 0.378) / 0.05, 2)) * 0.22;
+      const dipAward = Math.exp(-Math.pow((p - 0.74) / 0.05, 2)) * 0.22;
+      veil = Math.max(0.26, veil - dipMJ - dipAward);
       if (ref.current) ref.current.style.opacity = String(veil);
       raf = requestAnimationFrame(loop);
     };

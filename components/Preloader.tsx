@@ -7,7 +7,16 @@ import { useScrollStore } from "@/lib/scrollStore";
 export default function Preloader() {
   const [count, setCount] = useState(0);
   const [gone, setGone] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // if the portrait is already cached it may finish before onLoad attaches —
+  // catch that case so it doesn't stay invisible
+  useEffect(() => {
+    const im = imgRef.current;
+    if (im && im.complete && im.naturalWidth > 0) setImgLoaded(true);
+  }, []);
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -53,9 +62,42 @@ export default function Preloader() {
         padding: "clamp(1.5rem, 5vw, 3.5rem)",
       }}
     >
-      <div style={{ maxWidth: "60ch" }}>
+      {/* centred founder portrait — its black background blends into the void */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          ref={imgRef}
+          src="/founder.png"
+          alt=""
+          onLoad={() => setImgLoaded(true)}
+          style={{
+            maxHeight: "72vh",
+            maxWidth: "82vw",
+            objectFit: "contain",
+            transform: "translateY(-3%)",
+            opacity: imgLoaded ? 1 : 0,
+            transition: "opacity 1.1s ease 0.15s",
+            WebkitMaskImage:
+              "radial-gradient(120% 120% at 50% 42%, #000 62%, transparent 100%)",
+            maskImage:
+              "radial-gradient(120% 120% at 50% 42%, #000 62%, transparent 100%)",
+          }}
+        />
+      </div>
+
+      <div style={{ maxWidth: "60ch", position: "relative" }}>
         <div className="eyebrow" style={{ marginBottom: "1rem" }}>
-          Dr Patrick Treacy
+          Prof Patrick Treacy
         </div>
         <div
           className="display display-lg"
@@ -70,6 +112,7 @@ export default function Preloader() {
           fontSize: "clamp(3rem, 10vw, 9rem)",
           color: "var(--gold)",
           lineHeight: 1,
+          position: "relative",
         }}
       >
         {count}

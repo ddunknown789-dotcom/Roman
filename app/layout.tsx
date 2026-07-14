@@ -3,11 +3,12 @@ import { fraunces, spaceGrotesk } from "./fonts";
 import "./globals.css";
 import SmoothScroll from "@/components/SmoothScroll";
 import Cursor from "@/components/Cursor";
+import ChatBot from "@/components/ChatBot";
 
 export const metadata: Metadata = {
-  title: "Patrick Treacy — Author · Aesthetic-Medicine Pioneer · Humanitarian",
+  title: "Prof Patrick Treacy — Regenerative-Medicine Pioneer · Author · Humanitarian",
   description:
-    "The Irishman who became Michael Jackson's doctor. Author of Behind the Mask, The Needle and The Damage Done, and more — told in a fully immersive 3D experience.",
+    "The Irishman who became Michael Jackson's doctor. Founder of the Ailesbury Clinic, Dublin, author of fourteen books, and a globally recognised pioneer of regenerative aesthetic medicine — in a fully immersive 3D experience.",
 };
 
 export default function RootLayout({
@@ -20,6 +21,7 @@ export default function RootLayout({
         <div className="vignette" aria-hidden />
         <div className="grain" aria-hidden />
         <Cursor />
+        <ChatBot />
       </body>
     </html>
   );

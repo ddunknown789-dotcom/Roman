@@ -19,6 +19,10 @@ export default function SmoothScroll({
       registered = true;
     }
 
+    // reloads start at the top (don't restore mid-page scroll)
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    window.scrollTo(0, 0);
+
     const reduce = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
@@ -52,6 +56,9 @@ export default function SmoothScroll({
       requestAnimationFrame(raf);
     };
     const id = requestAnimationFrame(raf);
+    lenis.scrollTo(0, { immediate: true });
+    // dev aid: allow precise programmatic scrolling during testing
+    (window as unknown as { __lenis?: Lenis }).__lenis = lenis;
 
     // Keep ScrollTrigger and Lenis married.
     gsap.ticker.lagSmoothing(0);

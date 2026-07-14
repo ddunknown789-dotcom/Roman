@@ -11,25 +11,21 @@ export default function MaskChapter() {
       className="section"
       style={{ minHeight: "100vh", display: "flex", alignItems: "center" }}
     >
-      <div
-        className="section-inner"
-        style={{ maxWidth: 900, textAlign: "center", margin: "0 auto" }}
-      >
+      <div className="section-inner" style={{ textAlign: "left" }}>
         <Reveal>
           <span className="eyebrow">{MASK.eyebrow}</span>
         </Reveal>
         <SplitHeading
           text={MASK.title}
           className="display display-xl"
-          style={{ marginTop: "1.4rem", marginInline: "auto", maxWidth: "18ch" }}
+          style={{ marginTop: "1.4rem", maxWidth: "18ch" }}
         />
         <div
           style={{
             marginTop: "clamp(2rem, 5vw, 3.5rem)",
             display: "grid",
             gap: "1.4rem",
-            maxWidth: "58ch",
-            marginInline: "auto",
+            maxWidth: "54ch",
           }}
         >
           {MASK.body.map((p, i) => (

@@ -5,6 +5,13 @@ import { gsap } from "gsap";
 import { AUTHOR } from "@/lib/content";
 import { useScrollStore } from "@/lib/scrollStore";
 
+// Hero text treatment (readability without changing layout)
+const HERO_IVORY = "#F5F0E6"; // main heading
+const HERO_SUBTITLE = "#CFCBC2"; // subtitle / tagline
+const HERO_GOLD = "#D8B55B"; // labels / buttons
+const HERO_SHADOW =
+  "0 2px 8px rgba(0,0,0,0.65), 0 0 30px rgba(0,0,0,0.35)";
+
 export default function Hero() {
   const root = useRef<HTMLDivElement>(null);
   const ready = useScrollStore((s) => s.ready);
@@ -54,18 +61,32 @@ export default function Hero() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
+        justifyContent: "flex-end",
         textAlign: "center",
-        padding: "6rem 1.5rem 3rem",
+        padding: "6rem 1.5rem 5.5rem",
       }}
     >
-      <div data-fade className="eyebrow" style={{ marginBottom: "1.6rem", opacity: 0 }}>
+      <div
+        data-fade
+        className="eyebrow"
+        style={{
+          marginBottom: "1rem",
+          opacity: 0,
+          color: HERO_GOLD,
+          textShadow: HERO_SHADOW,
+        }}
+      >
         {AUTHOR.honorific} {AUTHOR.name}
       </div>
 
       <h1
-        className="display display-hero"
-        style={{ textTransform: "uppercase", mixBlendMode: "difference", margin: 0 }}
+        className="display display-xl"
+        style={{
+          textTransform: "uppercase",
+          margin: 0,
+          color: HERO_IVORY,
+          textShadow: HERO_SHADOW,
+        }}
       >
         <span data-rise style={{ display: "block", overflow: "hidden" }}>
           <span style={{ display: "block" }}>Patrick</span>
@@ -89,7 +110,8 @@ export default function Hero() {
           className="eyebrow"
           style={{
             display: "inline-block",
-            color: "var(--steel)",
+            color: HERO_GOLD,
+            textShadow: HERO_SHADOW,
             animation: "roleIn 0.6s ease",
           }}
         >
@@ -100,7 +122,13 @@ export default function Hero() {
       <p
         data-fade
         className="body-copy"
-        style={{ marginTop: "1.2rem", maxWidth: "46ch", opacity: 0 }}
+        style={{
+          marginTop: "1.2rem",
+          maxWidth: "46ch",
+          opacity: 0,
+          color: HERO_SUBTITLE,
+          textShadow: HERO_SHADOW,
+        }}
       >
         {AUTHOR.tagline}
       </p>
@@ -121,7 +149,7 @@ export default function Hero() {
       >
         <span
           className="eyebrow"
-          style={{ fontSize: "0.62rem", color: "var(--ivory-dim)" }}
+          style={{ fontSize: "0.62rem", color: HERO_GOLD, textShadow: HERO_SHADOW }}
         >
           Scroll
         </span>
