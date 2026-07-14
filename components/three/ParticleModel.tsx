@@ -29,6 +29,27 @@ function smoothstep(a: number, b: number, x: number) {
   return t * t * (3 - 2 * t);
 }
 
+// Every section this cloud reacts to, measured ONCE (on mount / resize / late
+// layout settle) instead of via getBoundingClientRect() every render frame.
+// getBoundingClientRect() forces a synchronous layout recalculation — doing
+// that up to 7x per frame inside useFrame (i.e. on every WebGL frame, forever)
+// is expensive enough to visibly drop frame rate, which is what turned Lenis's
+// smooth scroll-easing into a "stepped"/sticky feel. Reading window.scrollY and
+// window.innerHeight is cheap (no layout flush), so caching each section's
+// document-absolute top/height and deriving viewport-relative position with
+// plain arithmetic each frame removes all forced layout from the hot loop.
+const SECTION_IDS = [
+  "mask",
+  "awards",
+  "story",
+  "protocols",
+  "safety",
+  "books",
+  "publications",
+  "lectures",
+] as const;
+type Measured = { top: number; height: number };
+
 // choose a plane width so each portrait fits ~4.4 world units tall regardless
 // of the photo's aspect ratio
 const planeWidthFor = (img: HTMLImageElement) =>
@@ -40,12 +61,8 @@ export default function ParticleModel() {
   const disperse = useRef(1);
   const posX = useRef(0);
   const posY = useRef(0);
-  const storyNode = useRef<HTMLElement | null>(null);
-  const protoNode = useRef<HTMLElement | null>(null);
-  const safetyNode = useRef<HTMLElement | null>(null);
-  const booksNode = useRef<HTMLElement | null>(null);
-  const pubNode = useRef<HTMLElement | null>(null);
-  const lecturesNode = useRef<HTMLElement | null>(null);
+  const measured = useRef<Partial<Record<(typeof SECTION_IDS)[number], Measured>>>({});
+  const vhRef = useRef(typeof window !== "undefined" ? window.innerHeight : 800);
   const dpr = useThree((s) => s.gl.getPixelRatio());
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
 
@@ -135,8 +152,6 @@ export default function ParticleModel() {
     [dpr]
   );
 
-  // cached section nodes
-  const nodes = useRef<(HTMLElement | null)[]>([]);
   const reduced = useMemo(
     () =>
       typeof window !== "undefined" &&
@@ -144,12 +159,59 @@ export default function ParticleModel() {
     []
   );
 
+  useEffect(() => {
+    const measure = () => {
+      vhRef.current = window.innerHeight;
+      for (const id of SECTION_IDS) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        measured.current[id] = { top: r.top + window.scrollY, height: r.height };
+      }
+    };
+    measure();
+    // re-measure after layout / fonts settle and once the Books section's
+    // GSAP ScrollTrigger pin spacer has grown the page height
+    const t1 = window.setTimeout(measure, 400);
+    const t2 = window.setTimeout(measure, 1500);
+    window.addEventListener("load", measure);
+    let raf = 0;
+    const onResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(measure);
+    };
+    window.addEventListener("resize", onResize);
+    const ro = new ResizeObserver(onResize);
+    ro.observe(document.body);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.removeEventListener("load", measure);
+      window.removeEventListener("resize", onResize);
+      ro.disconnect();
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // derive a section's viewport-relative top/bottom/height (in vh units) from
+  // the cached measurement + current scroll — no DOM read, no forced layout
+  const rectFor = (id: (typeof SECTION_IDS)[number], scrollY: number, vh: number) => {
+    const m = measured.current[id];
+    if (!m) return null;
+    return {
+      top: (m.top - scrollY) / vh,
+      bottom: (m.top + m.height - scrollY) / vh,
+      height: m.height / vh,
+    };
+  };
+
   useFrame((state, dt) => {
     const clampDt = Math.min(dt, 0.05);
     const g = group.current;
     if (!g || !mat.current) return;
     const { mouse } = useScrollStore.getState();
-    const vh = window.innerHeight;
+    const vh = vhRef.current;
+    const scrollY = window.scrollY; // cheap: no layout flush (unlike getBoundingClientRect)
 
     const t = state.clock.elapsedTime;
     const m = reduced ? 0 : 1;
@@ -163,16 +225,9 @@ export default function ParticleModel() {
     let stX = 0;
     let stY = 0;
     for (let i = 0; i < STATIONS.length; i++) {
-      let node = nodes.current[i];
-      if (!node) {
-        node = document.getElementById(STATIONS[i].section);
-        nodes.current[i] = node;
-      }
-      if (!node) continue;
-      const r = node.getBoundingClientRect();
-      const top = r.top / vh;
-      const bottom = r.bottom / vh;
-      const h = r.height / vh;
+      const rect = rectFor(STATIONS[i].section as (typeof SECTION_IDS)[number], scrollY, vh);
+      if (!rect) continue;
+      const { top, bottom, height: h } = rect;
       const ap = STATIONS[i].appear;
       const appear = smoothstep(ap[0], ap[1], top); // in as the section rises into view
       const leave = smoothstep(0.08, 0.55, bottom); // out as it hands to the next chapter
@@ -195,21 +250,16 @@ export default function ParticleModel() {
     let heroA = 0;
     let heroX = 0;
     let heroY = 0;
-    let story = storyNode.current;
-    if (!story) {
-      story = document.getElementById("story");
-      storyNode.current = story;
-    }
-    if (story) {
-      const r = story.getBoundingClientRect();
+    const storyRect = rectFor("story", scrollY, vh);
+    if (storyRect) {
       // >0 while the About section still spans past centre; →0/neg at its end
-      const endProx = (r.bottom - vh / 2) / vh;
+      const endProx = storyRect.bottom - 0.5;
       heroA = smoothstep(-0.35, 0.2, endProx); // 1 formed .. 0 destroyed
       // descent progress, driven LINEARLY off scroll so the orb starts sinking
       // on the very first scroll: `upper` is the endProx value at the top of the
       // page (hero is 100vh), so k = 0 at rest and reaches 1 exactly as the
       // About section ends and the orb disperses.
-      const upper = 0.5 + r.height / vh;
+      const upper = 0.5 + storyRect.height;
       const k = Math.max(0, Math.min(1, (upper - endProx) / (upper + 0.35)));
       // the orb itself sinks steadily downward the whole time (reads as the orb
       // descending with you, not just the page), easing only slightly left.
@@ -223,23 +273,13 @@ export default function ParticleModel() {
     let docA = 0;
     let docX = 0;
     let docY = 0;
-    let proto = protoNode.current;
-    if (!proto) {
-      proto = document.getElementById("protocols");
-      protoNode.current = proto;
-    }
-    let safety = safetyNode.current;
-    if (!safety) {
-      safety = document.getElementById("safety");
-      safetyNode.current = safety;
-    }
-    if (proto && safety) {
-      const pr = proto.getBoundingClientRect();
-      const sr = safety.getBoundingClientRect();
-      const protoTop = pr.top / vh;
-      const safetyBottom = sr.bottom / vh;
-      const protoH = pr.height / vh;
-      const safetyH = sr.height / vh;
+    const protoRect = rectFor("protocols", scrollY, vh);
+    const safetyRect = rectFor("safety", scrollY, vh);
+    if (protoRect && safetyRect) {
+      const protoTop = protoRect.top;
+      const safetyBottom = safetyRect.bottom;
+      const protoH = protoRect.height;
+      const safetyH = safetyRect.height;
       const appear = smoothstep(1.05, 0.5, protoTop); // in as Protocols rises up
       // disperse through the lower part of Safety and be GONE before the Mask
       // formation begins (mask appears at top ≤ 0.45), so the doctor→MJ swap
@@ -258,29 +298,15 @@ export default function ParticleModel() {
     let readA = 0;
     let readX = 0;
     let readY = 0;
-    let booksEl = booksNode.current;
-    if (!booksEl) {
-      booksEl = document.getElementById("books");
-      booksNode.current = booksEl;
-    }
-    let pubEl = pubNode.current;
-    if (!pubEl) {
-      pubEl = document.getElementById("publications");
-      pubNode.current = pubEl;
-    }
-    let lecturesEl = lecturesNode.current;
-    if (!lecturesEl) {
-      lecturesEl = document.getElementById("lectures");
-      lecturesNode.current = lecturesEl;
-    }
-    if (booksEl && lecturesEl) {
-      const bkr = booksEl.getBoundingClientRect();
-      const lcr = lecturesEl.getBoundingClientRect();
-      const booksTop = bkr.top / vh;
-      const booksH = bkr.height / vh;
-      const pubH = pubEl ? pubEl.getBoundingClientRect().height / vh : 1;
-      const lecturesH = lcr.height / vh;
-      const lecturesMid = (lcr.top + lcr.height / 2) / vh; // viewport heights to lectures centre
+    const booksRect = rectFor("books", scrollY, vh);
+    const pubRect = rectFor("publications", scrollY, vh);
+    const lecturesRect = rectFor("lectures", scrollY, vh);
+    if (booksRect && lecturesRect) {
+      const booksTop = booksRect.top;
+      const booksH = booksRect.height;
+      const pubH = pubRect ? pubRect.height : 1;
+      const lecturesH = lecturesRect.height;
+      const lecturesMid = lecturesRect.top + lecturesRect.height / 2; // vh units to lectures centre
       const appear = smoothstep(1.05, 0.5, booksTop); // in as Books rises up
       // disperse as the MIDDLE of Lectures approaches the viewport centre
       const leave = smoothstep(0.35, 0.85, lecturesMid);
