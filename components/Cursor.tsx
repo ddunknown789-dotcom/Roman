@@ -25,21 +25,46 @@ export default function Cursor() {
       setMouse((x / window.innerWidth) * 2 - 1, -((y / window.innerHeight) * 2 - 1));
     };
 
+    // Mouse/pen: Pointer Events fire continuously and reliably, so use those.
     const onMove = (e: PointerEvent) => {
-      // fires continuously for mouse; for touch it only fires while a finger
-      // is already down and moving — exactly when we want the ring to follow it
+      if (e.pointerType === "touch") return; // touch is handled below instead
       place(e.clientX, e.clientY, e.target as HTMLElement | null);
     };
     const onDown = (e: PointerEvent) => {
-      // snap straight to the touch/click point instead of lerping in from
-      // wherever the ring last was — always on screen, follows instantly
+      if (e.pointerType === "touch") return;
+      // snap straight to the click point instead of lerping in from wherever
+      // the ring last was
       rx = e.clientX;
       ry = e.clientY;
       place(e.clientX, e.clientY, e.target as HTMLElement | null);
     };
 
+    // Touch: some mobile browsers coalesce/suppress pointermove during an
+    // active scroll-drag, which made the ring only jump on each new touchdown
+    // instead of tracking a continuous drag. Native Touch Events are the one
+    // stream guaranteed to keep firing for as long as a finger stays down and
+    // moves, so touch position tracking uses those directly instead.
+    const touchXY = (e: TouchEvent): [number, number] | null => {
+      const t = e.touches[0];
+      return t ? [t.clientX, t.clientY] : null;
+    };
+    const onTouchStart = (e: TouchEvent) => {
+      const xy = touchXY(e);
+      if (!xy) return;
+      rx = xy[0];
+      ry = xy[1];
+      place(xy[0], xy[1], document.elementFromPoint(xy[0], xy[1]) as HTMLElement | null);
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const xy = touchXY(e);
+      if (!xy) return;
+      place(xy[0], xy[1], document.elementFromPoint(xy[0], xy[1]) as HTMLElement | null);
+    };
+
     window.addEventListener("pointermove", onMove, { passive: true });
     window.addEventListener("pointerdown", onDown, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
 
     let raf = 0;
     const loop = () => {
@@ -60,6 +85,8 @@ export default function Cursor() {
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
       cancelAnimationFrame(raf);
     };
   }, []);
