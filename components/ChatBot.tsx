@@ -28,7 +28,7 @@ export default function ChatBot() {
   const [msgs, setMsgs] = useState<Msg[]>([{ role: "bot", text: GREETING }]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
-  const [sound, setSound] = useState(false);
+  const [sound, setSound] = useState(true);
   const bodyRef = useRef<HTMLDivElement>(null);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
 

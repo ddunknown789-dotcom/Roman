@@ -51,7 +51,7 @@ export default function SocialFeeds() {
             </div>
           </div>
 
-          <p className="yt-note">His newest uploads and shorts — always current, with nothing to post here by hand.</p>
+          <p className="yt-note">His newest uploads and shorts, straight from the channel.</p>
         </div>
       </Reveal>
     </>
